@@ -1,0 +1,317 @@
+This file contains the GameMaker event code for the basic version of the first game. 
+
+objScore
+Create event: 
+/// @description set point value
+// worth 100 points
+pointsValue = 100;
+-----------------------------
+objLife
+Create event:
+/// @description setup oxygen tank and timer 
+lifeValue = 20;
+// destroy after 10 seconds 
+alarm_set(0, game_get_speed(gamespeed_fps)*10);
+
+Alarm 0 event:
+/// @description destroy the life item when the timer goes off
+instance_destroy();
+-----------------------------
+objShip
+Create event: 
+/// @description setup the ship
+// start with the thrust off
+thrust = false;
+
+turnRate = 3;
+maxSpeed = 6;
+
+// set starting point in the middle of the room
+x = room_width/2;
+y = room_height/2;
+
+Draw event:
+/// @description draw the ship
+// show the right ship picture depending on whether the thrust is on 
+
+if(thrust == true)
+{
+	draw_sprite_ext(sprShip, 1, x, y, 1, 1, image_angle, c_white, 1);
+} 
+else
+{
+	draw_sprite_ext(sprShip, 0, x, y, 1, 1, image_angle, c_white, 1);
+}
+
+Collision objLife event:
+/// @description pickup oxygen
+// give the player credit for picking up the oxygen
+objGameController.playerLife += other.lifeValue;
+audio_play_sound(sndLife, 1, false);
+// then make the oxygen item go away
+// this code is part of the ship, so "other" refers
+// to the object other than the ship - the oxygen in this event
+with(other)
+{
+	instance_destroy();
+}
+
+Collision objScore event:
+/// @description score points
+// give the player credit for picking up the coin
+objGameController.playerScore += other.pointsValue;
+audio_play_sound(sndScore, 1, false);
+// then make the oxygen item go away
+// this code is part of the ship, so "other" refers
+// to the object other than the ship - the coin in this event
+with(other)
+{
+	instance_destroy();
+}
+
+Step event:
+/// @description ship controls
+// if the game is over, stop the ship
+if(global.playing == false)
+{
+	speed = 0;
+}
+// otherwise, control the ship because we're playing
+else
+{
+	// basic wrapping for sides of the screen...
+	if(x<0)
+	{
+		x = room_width;
+	}
+	if(x>room_width)
+	{
+		x = 0;
+	}
+	if(y<0)
+	{
+		y = room_height;
+	}
+	if(y>room_height)
+	{
+		y = 0;
+	}
+	
+	// thrust if we press the space bar
+	if(keyboard_check(vk_space) == true)
+	{
+		// play the thrust sounds as a loop if it isn't already playing
+		if(audio_is_playing(sndThrust) == false)
+		{
+			audio_play_sound(sndThrust, 1, true); 
+		}
+		thrust = true;
+		direction = image_angle;
+		speed = speed + .5;
+		if(speed > maxSpeed)
+		{
+			speed = maxSpeed;
+		}
+		motion_set(direction, speed);
+	}
+	// turn off thrust if not pressing the space bar
+	if(keyboard_check(vk_space) == false)
+	{
+		audio_stop_sound(sndThrust);
+		thrust = false;
+	}
+	
+	// direction
+	// rotate left with left arrow
+	if(keyboard_check(vk_left) == true)
+	{
+		image_angle = image_angle + turnRate;
+	}
+	// rotate right with right arrow
+	if (keyboard_check(vk_right) == true)
+	{
+		image_angle = image_angle - turnRate;
+	}
+	
+	// drag (yes, even though we are in space
+	// because it makes the game feel better)
+	if(speed>0.02)
+	{
+		speed = speed - .02;
+	}
+	else
+	{
+		speed = 0;
+	}
+}
+-----------------------------
+objGameController
+Create event:
+/// @description setup game controller and alarms
+// randomize the random numbers
+randomize();
+
+playerScore = 0;
+
+// set the life value when we start to give oxygen tanks
+oxygenThreshold = 50;
+
+playerLife = 100;
+// set an alarm to reduce player life every second
+playerLifeReductionTimer = game_get_speed(gamespeed_fps)*1;
+alarm_set(0, playerLifeReductionTimer);
+ 
+playTimeSeconds = 0;
+// set an alarm to count play time every second
+playTimeTimer = game_get_speed(gamespeed_fps)*1;
+alarm_set(1, playTimeTimer);
+
+// start playing
+global.playing = true;
+
+Alarm 0 event:
+/// @description setup game controller and alarms
+// randomize the random numbers
+randomize();
+
+playerScore = 0;
+
+// set the life value when we start to give oxygen tanks
+oxygenThreshold = 50;
+
+playerLife = 100;
+// set an alarm to reduce player life every second
+playerLifeReductionTimer = game_get_speed(gamespeed_fps)*1;
+alarm_set(0, playerLifeReductionTimer);
+ 
+playTimeSeconds = 0;
+// set an alarm to count play time every second
+playTimeTimer = game_get_speed(gamespeed_fps)*1;
+alarm_set(1, playTimeTimer);
+
+// start playing
+global.playing = true;
+
+Alarm 1 event: 
+/// @description play time counter
+playTimeSeconds = playTimeSeconds +1;
+alarm_set(1, playTimeTimer);
+
+DrawGUI event: 
+/// @description display HUD
+draw_set_color(c_white);
+draw_set_halign(fa_left);
+draw_text(60, 40, "Score: "+string(playerScore));
+draw_text(room_width-300, 40, "Life: "+string(playerLife));
+// display the game over and restart message
+if(global.playing == false)
+{
+	draw_set_halign(fa_center);
+	draw_text(room_width/2, room_height/2, "Game Over!");
+	draw_text(room_width/2, (room_height/2)+200, "Pres R key to restart");
+}
+
+Step event:
+/// @description game progression
+// stop everything if the game is over
+if(global.playing == false)
+{
+	// turn off timers
+	alarm_set(0, -1);
+	alarm_set(1, -1);
+	// wait until the player restarts the game
+	if(keyboard_check_pressed(ord("R")) == true)
+	{
+		// destroy all score targets
+		with(objScore)
+		{
+			instance_destroy();
+		}
+		// destroy all life targets
+		with(objLife)
+		{
+			instance_destroy();
+		}
+		// destroy ship and recreate it in the center
+		with(objShip)
+		{
+			instance_destroy();
+		}
+		instance_create_depth(room_width/2, room_height/2, -100, objShip);
+		
+		// reset variables
+		playerScore = 0;
+		playerLife = 100;
+		oxygenThreshold = 50;
+		playerLifeReductionTimer = game_get_speed(gamespeed_fps)*1;
+		playTimeSeconds = 0;
+		
+		//restart the timers
+		// life reduction
+		alarm_set(0, playerLifeReductionTimer);
+		
+		// play timer
+		alarm_set(1, playTimeTimer);
+		// and we're ready to play
+		global.playing = true;
+	}
+}
+// the game is in progress
+else
+{
+	// make sure there are always three targets
+	if(instance_number(objScore) < 3)
+	{
+		// put the score items in random places
+		var newScoreX = irandom_range(40, room_width-40);
+		var newScoreY = irandom_range(40, room_height-40);
+		// don't put it right on the player or another target
+		if((place_meeting(newScoreX, newScoreY, objScore) == false && (place_meeting(newScoreX, newScoreY, objShip) == false)))
+		{
+			instance_create_depth(newScoreX, newScoreY, -100, objScore);
+		}
+	}
+	// if playerLife is low, give them some oxygen to pick up if there isn't any already
+	if(playerLife <= oxygenThreshold && (instance_exists(objLife) == false))
+	{
+		var newLifeX = irandom_range(40, room_width-40);
+		var newLifeY = irandom_range(40, room_height-40);
+		// don't put it right on the player or a target
+		if((place_meeting(newLifeX, newLifeY, objScore) == false) && (place_meeting(newLifeX, newLifeY, objShip) == false))
+		{
+			instance_create_depth(newLifeX, newLifeY, -100, objLife); 
+		}
+	}
+	
+	// out of life so end the game
+	if (playerLife<1)
+	{
+		// stop all other sounds
+		audio_stop_all();
+		// play game over sound
+		audio_play_sound(sndGameOver, 1, false);
+		playerLife = 0;
+		global.playing = false;
+	}
+	
+	// the longer you play, the faster your life decreases
+	if(playTimeSeconds > 10) 
+	{
+		playerLifeReductionTimer = game_get_speed(gamespeed_fps)*.7;
+	}
+	if(playTimeSeconds > 20) 
+	{
+		playerLifeReductionTimer = game_get_speed(gamespeed_fps)*.5;
+	}
+	if(playTimeSeconds > 30) 
+	{
+		playerLifeReductionTimer = game_get_speed(gamespeed_fps)*.4;
+	}
+	if(playTimeSeconds > 40) 
+	{
+		playerLifeReductionTimer = game_get_speed(gamespeed_fps)*.3;
+	}
+}
+
+
+
